@@ -1,0 +1,12 @@
+# 介绍闭包
+## 什么是闭包
+哈哈哈哈
+
+## 闭包的作用是什么
+
+## This is test
+
+<script>
+  console.log('zxp')
+  alert(1)
+</script>
