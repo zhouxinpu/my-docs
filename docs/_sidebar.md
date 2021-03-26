@@ -5,6 +5,8 @@
   - [布局](css/css.md)
 
 - JavaScript
+  - [基础](javascript/base.md)
+  - [数据类型](javascript/type.md)
   - [闭包](javascript/closure.md)
   - [原型](javascript/prototype.md)
 
