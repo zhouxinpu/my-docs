@@ -7,7 +7,10 @@
 - JavaScript
   - [基础](javascript/base.md)
   - [数据类型](javascript/type.md)
-  - [闭包](javascript/closure.md)
+  - [运算符](javascript/operator.md)
+  - [数据类型转换](javascript/convert.md)
+  - [标准库](javascript/library.md)
+  - [面向对象](javascript/oop.md)
   - [原型](javascript/prototype.md)
 
 - Vue
