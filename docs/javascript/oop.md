@@ -365,3 +365,260 @@ Vehicle.prototype.isPrototypeOf(v)
 
 #### 构造函数的继承 # 
 
+1. 第一步是在子类的构造函数中，调用父类的构造函数。
+
+```js
+function Sub(value) {
+  Super.call(this);
+  this.prop = value;
+}
+```
+
+2. 第二步，是让子类的原型指向父类的原型，这样子类就可以继承父类原型。
+
+```js
+Sub.prototype = Object.create(Super.prototype);
+Sub.prototype.constructor = Sub;
+Sub.prototype.method = '...';
+
+// 上面代码中，Sub.prototype是子类的原型，要将它赋值为Object.create(Super.prototype)，而不是直接等于Super.prototype。否则后面两行对Sub.prototype的操作，会连父类的原型Super.prototype一起修改掉。
+```
+
+
+
+```js
+function Shape() {
+  this.x = 0;
+  this.y = 0;
+}
+
+Shape.prototype.move = function (x, y) {
+  this.x += x;
+  this.y += y;
+  console.info('Shape moved.');
+};
+```
+
+我们需要让Rectangle构造函数继承Shape。
+
+```js
+// 第一步，子类继承父类的实例
+function Rectangle() {
+  Shape.call(this); // 调用父类构造函数
+}
+// 另一种写法
+function Rectangle() {
+  this.base = Shape;
+  this.base();
+}
+
+// 第二步，子类继承父类的原型
+Rectangle.prototype = Object.create(Shape.prototype);
+Rectangle.prototype.constructor = Rectangle;
+```
+
+上面代码中，子类是整体继承父类。有时只需要单个方法的继承，这时可以采用下面的写法。
+
+```js
+ClassB.prototype.print = function() {
+  ClassA.prototype.print.call(this);
+  // some code
+}
+```
+
+#### 多重继承
+
+JavaScript 不提供多重继承功能，即不允许一个对象同时继承多个对象。但是，可以通过变通方法，实现这个功能。
+
+```js
+function M1() {
+  this.hello = 'hello';
+}
+
+function M2() {
+  this.world = 'world';
+}
+
+function S() {
+  M1.call(this);
+  M2.call(this);
+}
+
+// 继承 M1
+S.prototype = Object.create(M1.prototype);
+// 继承链上加入 M2
+Object.assign(S.prototype, M2.prototype);
+
+// 指定构造函数
+S.prototype.constructor = S;
+
+var s = new S();
+s.hello // 'hello'
+s.world // 'world'
+```
+
+
+### Object 对象的相关方法
+
+1. Object.getPrototypeOf方法返回参数对象的原型。这是获取原型对象的标准方法。
+
+```js
+var F = function () {};
+var f = new F();
+Object.getPrototypeOf(f) === F.prototype // true
+```
+
+2. Object.setPrototypeOf方法为参数对象设置原型，返回该参数对象。它接受两个参数，第一个是现有对象，第二个是原型对象。
+
+```js
+var a = {};
+var b = {x: 1};
+Object.setPrototypeOf(a, b);
+
+Object.getPrototypeOf(a) === b // true
+a.x // 1
+```
+
+3. Object.create()方法，从一个实例对象，生成另一个实例对象。
+
+```js
+// 原型对象
+var A = {
+  print: function () {
+    console.log('hello');
+  }
+};
+
+// 实例对象
+var B = Object.create(A);
+
+Object.getPrototypeOf(B) === A // true
+B.print() // hello
+B.print === A.print // true
+```
+
+Object.create()方法还可以接受第二个参数。该参数是一个属性描述对象，它所描述的对象属性，会添加到实例对象，作为该对象自身的属性。
+
+```js
+var obj = Object.create({}, {
+  p1: {
+    value: 123,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  },
+  p2: {
+    value: 'abc',
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  }
+});
+
+// 等同于
+var obj = Object.create({});
+obj.p1 = 123;
+obj.p2 = 'abc';
+```
+
+4. 实例对象的isPrototypeOf方法，用来判断该对象是否为参数对象的原型。
+
+```js
+var o1 = {};
+var o2 = Object.create(o1);
+var o3 = Object.create(o2);
+
+o2.isPrototypeOf(o3) // true
+```
+
+5. 实例对象的__proto__属性（前后各两个下划线），返回该对象的原型。该属性可读写。
+
+```js
+var obj = {};
+var p = {};
+
+obj.__proto__ = p;
+Object.getPrototypeOf(obj) === p // true
+
+```
+
+6. Object.getOwnPropertyNames方法返回一个数组，成员是参数对象本身的所有属性的键名，不包含继承的属性键名。
+
+```js
+Object.getOwnPropertyNames(Date)
+// ["parse", "arguments", "UTC", "caller", "name", "prototype", "now", "length"]
+```
+
+上面代码中，Object.getOwnPropertyNames方法返回Date所有自身的属性名。
+
+对象本身的属性之中，有的是可以遍历的（enumerable），有的是不可以遍历的。Object.getOwnPropertyNames方法返回所有键名，不管是否可以遍历。只获取那些可以遍历的属性，使用Object.keys方法
+
+```js
+Object.keys(Date) // []
+```
+
+上面代码表明，Date对象所有自身的属性，都是不可以遍历的。
+
+7. 获取原型对象方法
+
+* obj.__proto__
+* obj.constructor.prototype
+* Object.getPrototypeOf(obj) 推荐
+
+8. Object.prototype.hasOwnProperty(),对象实例的hasOwnProperty方法返回一个布尔值，用于判断某个属性定义在对象自身，还是定义在原型链上。
+
+```js
+Date.hasOwnProperty('length') // true
+Date.hasOwnProperty('toString') // false
+```
+
+上面代码表明，Date.length（构造函数Date可以接受多少个参数）是Date自身的属性，Date.toString是继承的属性。
+
+另外，hasOwnProperty方法是 JavaScript 之中唯一一个处理对象属性时，不会遍历原型链的方法。
+
+9. in 运算符和 for...in 循环 
+
+> in运算符返回一个布尔值，表示一个对象是否具有某个属性。它不区分该属性是对象自身的属性，还是继承的属性。in运算符常用于检查一个属性是否存在。
+
+```js
+length' in Date // true
+'toString' in Date // true
+```
+
+> 获得对象的所有可遍历属性（不管是自身的还是继承的），可以使用for...in循环。
+
+为了在for...in循环中获得对象自身的属性，可以采用hasOwnProperty方法判断一下。
+
+```js
+for ( var name in object ) {
+  if ( object.hasOwnProperty(name) ) {
+    /* loop code */
+  }
+}
+```
+
+
+#### 对象的拷贝
+
+如果要拷贝一个对象，需要做到下面两件事情。
+
+* 确保拷贝后的对象，与原对象具有同样的原型。
+* 确保拷贝后的对象，与原对象具有同样的实例属性。
+
+```js
+function copyObject(orig) {
+  var copy = Object.create(Object.getPrototypeOf(orig));
+  copyOwnPropertiesFrom(copy, orig);
+  return copy;
+}
+
+function copyOwnPropertiesFrom(target, source) {
+  Object
+    .getOwnPropertyNames(source)
+    .forEach(function (propKey) {
+      var desc = Object.getOwnPropertyDescriptor(source, propKey);
+      Object.defineProperty(target, propKey, desc);
+    });
+  return target;
+}
+```
