@@ -2,7 +2,7 @@
 
 ### 语义化标签
 
-> <header>, <footer>, <main>, <nav>, <aside> 等
+> \<header\>, \<footer\>, \<main\>, \<nav\>, \<aside\> 等
 
 * 为了在没有CSS的情况下，页面也能呈现出很好地内容结构、代码结构
 * 比<div>标签有更加丰富的含义，方便开发与维护

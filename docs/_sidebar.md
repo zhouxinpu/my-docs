@@ -18,6 +18,9 @@
   - [源码](vue/source.md)
   - [笔记](vue/vue.md)
 
+- TypeScript
+  - [笔记](typescript/ts.md)
+
 - Axios
   - [源码](axios/index.md)
 
