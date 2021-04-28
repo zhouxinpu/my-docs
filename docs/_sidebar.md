@@ -15,8 +15,9 @@
   - [原型](javascript/prototype.md)
 
 - Vue
-  - [源码](vue/source.md)
-  - [笔记](vue/vue.md)
+  - [源码](vue/vue.md)
+  - [笔记](vue/source.md)
+  
 
 - TypeScript
   - [笔记](typescript/ts.md)
