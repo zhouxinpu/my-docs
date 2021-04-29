@@ -1,7 +1,5 @@
 ## vue源码
 
-
-
 ### 源码目录
 
 先打开文件夹 看一下文件目录：
@@ -989,4 +987,69 @@ Vue.config.isUnknownElement = isUnknownElement
 
 ### with compiler
 
-看完`platform/web/runtime/index.js`文件后，运行时版本的`Vue`构造函数已经成型，
+看完`platform/web/runtime/index.js`文件后，运行时版本的`Vue`构造函数已经成型， 打开`platforms/web/entry-runtime.js`这个入口文件，只有两行代码：
+
+```js
+import Vue from './runtime/index'
+
+export default Vue
+```
+
+`platform/web/runtime/index.js`是运行版本的入口文件，导出的`Vue`就到`./runtime/index.js`文件为止。我们要去查看完整版的`Vue`，入口文件是`platform/web/entry-runtime-with-compiler.js`，运行版和完整版的区别就是`compiler`，所以完整版的作用就是在运行版的基础上添加`compiler`，打开`platform/web/entry-runtime-with-compiler.js`这个文件：
+
+```js
+// ... 其他 import 语句
+
+// 导入 运行时 的 Vue
+import Vue from './runtime/index'
+
+// ... 其他 import 语句
+
+// 从 ./compiler/index.js 文件导入 compileToFunctions
+import { compileToFunctions } from './compiler/index'
+
+// 根据 id 获取元素的 innerHTML
+const idToTemplate = cached(id => {
+  const el = query(id)
+  return el && el.innerHTML
+})
+
+// 使用 mount 变量缓存 Vue.prototype.$mount 方法
+const mount = Vue.prototype.$mount
+// 重写 Vue.prototype.$mount 方法
+Vue.prototype.$mount = function (
+  el?: string | Element,
+  hydrating?: boolean
+): Component {
+  // ... 函数体省略
+}
+
+/**
+ * 获取元素的 outerHTML
+ */
+function getOuterHTML (el: Element): string {
+  if (el.outerHTML) {
+    return el.outerHTML
+  } else {
+    const container = document.createElement('div')
+    container.appendChild(el.cloneNode(true))
+    return container.innerHTML
+  }
+}
+
+// 在 Vue 上添加一个全局API `Vue.compile` 其值为上面导入进来的 compileToFunctions
+Vue.compile = compileToFunctions
+
+// 导出 Vue
+export default Vue
+```
+
+该文件的开始是一堆 `import` 语句，其中重要的两句 `import` 语句就是上面代码中出现的那两句，一句是导入运行时的 `Vue`，一句是从 `./compiler/index.js` 文件导入 `compileToFunctions`，并且在倒数第二句代码将其添加到 `Vue.compile` 上。
+
+然后定义了一个函数 `idToTemplate`，这个函数的作用是：获取拥有指定 `id` 属性的元素的 `innerHTML`。
+
+之后缓存了运行时版 `Vue` 的 `Vue.prototype.$mount` 方法，并且进行了重写。
+
+接下来又定义了 `getOuterHTML` 函数，用来获取一个元素的 `outerHTML`。
+
+这个文件运行下来，对 `Vue` 的影响有两个，第一个影响是它重写了 `Vue.prototype.$mount` 方法；第二个影响是添加了 `Vue.compile` 全局API。
