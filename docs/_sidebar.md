@@ -18,6 +18,7 @@
   - [Vue构造函数](vue/vue.md)
   - [以一个例子为线索](vue/example.md)
   - [Vue选项的规范化](vue/normalize.md)
+  - [Vue选项的合并](vue/merge.md)
   - [core/util下的方法](vue/core-util.md)
   - [笔记](vue/source.md)
   

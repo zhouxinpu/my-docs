@@ -322,7 +322,7 @@ export const isSVG = makeMap(
 
 
 
-### 规范化props`（normalizeProps）`
+### 规范化props`（normalizeProps，normalizeInject，normalizeDirectives）`
 
 接下来的一段代码：
 
@@ -332,28 +332,7 @@ export const isSVG = makeMap(
   normalizeDirectives(child)
 ```
 
-这三个函数是用来规范选项的。以props为例，我们在使用props的时候，可以有两种写法，一种是字符串：
-
-```js
-const ChildComponent = {
-    props: ['propName']
-}
-```
-
-另外一种是使用对象语法：
-
-```js
-const ChildComponent = {
-    props: {
-        propName: {
-            type: propType,
-            default: propDefault
-        }
-    }
-}
-```
-
-这两种写法给开发者提供了非常灵活且便利的写法，但是对于`Vue`要对选项进行处理，这种情况下就需要在内部将其规范成同一种方式，这样在选项合并的时候就能统一处理，这就是上面3个函数的作用。
+这三个函数是用来规范选项的。
 
 先看第一个函数`normalizeProps`：
 
@@ -396,4 +375,389 @@ function normalizeProps (options: Object, vm: ?Component) {
   options.props = res
 }
 ```
+
+根据注释可知，`normalizeProps`的作用就是确保所有props配置语法规范化到基于对象的格式。
+
+以props为例，我们在使用props的时候，可以有两种写法，一种是字符串：
+
+```js
+const ChildComponent = {
+    props: ['propName']
+}
+```
+
+另外一种是使用对象语法：
+
+```js
+const ChildComponent = {
+    props: {
+        propName: {
+            type: propType,
+            default: propDefault
+        }
+    }
+}
+```
+
+这两种写法给开发者提供了非常灵活且便利的写法，但是对于`Vue`要对选项进行处理，这种情况下就需要在内部将其规范成同一种方式，这样在选项合并的时候就能统一处理，这就是上面3个函数的作用。
+
+```js
+const props = options.props
+```
+
+接下来定义了一个变量`res`用来接收规范化的props:
+
+```js
+const res = {}
+```
+
+把传递进来的`options.props`赋值给一个变量，
+
+```js
+if (Array.isArray(props)) {
+    i = props.length
+    while (i--) {
+        val = props[i]
+        if (typeof val === 'string') {
+            name = camelize(val)
+            res[name] = { type: null }
+        } else if (process.env.NODE_ENV !== 'production') {
+            warn('props must be strings when using array syntax.')
+        }
+    }
+}
+```
+
+判断props如果是一个数组，遍历props，判断每一项如果不是字符串，则给个友好的提示，如果是字符串，如果是连字符，就变为驼峰作为key，值为{type: null}，比如：
+
+```js
+props: ['name']
+```
+
+经过上述代码处理之后就会变成：
+
+```js
+props:[
+	name: {
+    	type: null
+    }
+]
+```
+
+接下来的一段代码判断props如果是一个对象，遍历对象每一项，对象的key如果是连字符就变驼峰表示，value的值如果是对象则直接返回，否则返回{type: props[key]}：
+
+```js
+else if (isPlainObject(props)) {
+    for (const key in props) {
+        val = props[key]
+        name = camelize(key)
+        res[name] = isPlainObject(val)
+            ? val
+        : { type: val }
+    }
+}
+```
+
+如果你的props是对象如下：
+
+```js
+props:{
+    someData1: Number,
+ 	someData2: {
+        type: string,
+        default: ''
+    }
+}
+```
+
+经过上述代码处理之后：
+
+```js
+props:{
+    someData1:{
+        type: Number
+    },
+    someData2:{
+        type: String,
+        default: ''
+    }
+}
+```
+
+代码最后还有一个判断分支，即当你传递了props，但其值既不是对象也不是字符串数组的时候，就会给你一个友好的提示：
+
+```js
+if (process.env.NODE_ENV !== 'production') {
+    warn(
+        `Invalid value for option "props": expected an Array or an Object, ` +
+        `but got ${toRawType(props)}.`,
+        vm
+    )
+}
+```
+
+代码的最后使用`res`覆盖了`options.props`。
+
+
+
+在看第二个函数`normalizeInject`：
+
+```js
+function normalizeInject (options: Object, vm: ?Component) {
+  const inject = options.inject
+  if (!inject) return
+  const normalized = options.inject = {}
+  if (Array.isArray(inject)) {
+    for (let i = 0; i < inject.length; i++) {
+      normalized[inject[i]] = { from: inject[i] }
+    }
+  } else if (isPlainObject(inject)) {
+    for (const key in inject) {
+      const val = inject[key]
+      normalized[key] = isPlainObject(val)
+        ? extend({ from: key }, val)
+        : { from: val }
+    }
+  } else if (process.env.NODE_ENV !== 'production') {
+    warn(
+      `Invalid value for option "inject": expected an Array or an Object, ` +
+      `but got ${toRawType(inject)}.`,
+      vm
+    )
+  }
+}
+```
+
+首先是这三句代码：
+
+```js
+  const inject = options.inject
+  if (!inject) return
+  const normalized = options.inject = {}
+```
+
+第一句话用变量`inject`缓存了`options.inject`，第二句判断了有没有传递`inject`，没有的话就直接返回，第三句重写了`options.inject`为空对象，然后定义了变量`normalized`为空对象，现在变量`normalized`和`options.inject`引用了同一个对象，也就是修改`normalized`，`options.inject`也会受到影响。
+
+
+
+之后同样是判断分支语句，判断`inject`选项是数组或者是纯对象，`inject`选项是`v2.2.0`版本之后新增的，它需要配合`provide`选项一起使用，比如：
+
+```js
+// 子组件
+const ChildComponent = {
+  template: '<div>child component</div>',
+  created: function () {
+    // 这里的 data 是父组件注入进来的
+    console.log(this.data)
+  },
+  inject: ['data']
+}
+
+// 父组件
+var vm = new Vue({
+  el: '#app',
+  // 向子组件提供数据
+  provide: {
+    data: 'test provide'
+  },
+  components: {
+    ChildComponent
+  }
+})
+```
+
+上面的代码中，在子组件的`created`生命周期里打印`this.data`，但是我们没有定义这个数据，之所以可以使用是因为我们使用了`inject`选项注入了这个数据，数据来源于父组件通过`provide`提供，父组件通过`provide`选项向子组件提供数据，子组件使用`inject`注入数据，`inject`不仅可以上例的字符串数据，也可以写成对象形式，比如：
+
+```js
+// 子组件
+const ChildComponent = {
+  template: '<div>child component</div>',
+  created: function () {
+    // 这里的 data 是父组件注入进来的
+    console.log(this.d)
+  },
+  // 对象的语法类似于给数据声明了一个别名
+  inject: {d: 'data'}
+}
+```
+
+所以回头再去看`normalizeInject`函数所做的无非就是把两种格式的代码给规范化成一种写法罢了。
+
+接下来的代码：
+
+```js
+if (Array.isArray(inject)) {
+    for (let i = 0; i < inject.length; i++) {
+        normalized[inject[i]] = { from: inject[i] }
+    }
+}
+```
+
+判断`inject`是不是数组，如果是数组，遍历`inject`，如果你的`inject`选项是这样写的：
+
+```js
+inject: ['data']
+```
+
+经过上面的代码规范化就会变成这样：
+
+```js
+inject:{
+    data:{from: data}
+}
+```
+
+当`inject`不是数组，是一个纯对象的时候，就走`else if`分支：
+
+```js
+else if (isPlainObject(inject)) {
+    for (const key in inject) {
+        const val = inject[key]
+        normalized[key] = isPlainObject(val)
+            ? extend({ from: key }, val)
+        : { from: val }
+    }
+}
+```
+
+遍历`inject`，如果`inject`的`val`是一个纯对象，则使用`extend`来进行混合，否则就直接使用`val`作为字段`from`字段的值。
+
+比如：
+
+```js
+inject: {
+  data1,
+  'd2': 'data2',
+  'data3': { someProperty: 'someValue' }
+}
+```
+
+经过上述函数转换之后就会变成这样：
+
+```js
+inject: {
+  'data1': { from: 'data1' },
+  'd2': { from: 'data2' },
+  'data3': { from: 'data3', someProperty: 'someValue' }
+}
+```
+
+
+
+代码最后的`else if`判断分支，同样是用来判断如果传递了`inject`，但其值既不是对象也不是字符串数组的时候，非生产环境下就会给你一个友好的提示：
+
+```js
+else if (process.env.NODE_ENV !== 'production') {
+    warn(
+        `Invalid value for option "inject": expected an Array or an Object, ` +
+        `but got ${toRawType(inject)}.`,
+        vm
+    )
+}
+```
+
+第三个函数`normalizeDirectives`：
+
+```js
+/**
+ * Normalize raw function directives into object format.
+ */
+function normalizeDirectives (options: Object) {
+  const dirs = options.directives
+  if (dirs) {
+    for (const key in dirs) {
+      const def = dirs[key]
+      if (typeof def === 'function') {
+        dirs[key] = { bind: def, update: def }
+      }
+    }
+  }
+}
+```
+
+由注释可知，这个函数的作用是把一个函数类型的指令转换为对象格式。遍历所有的指令，当发现注册的指令是函数的时候，则将该函数作为对象形式的`bind`属性和`update`属性的值，也就是可以把函数语法注册指令的方式理解为一种简写。
+
+
+
+比如我们注册了两个局部组件分别是`v-test1`和`v-test2`：
+
+```js
+<div id="app" v-test1 v-test2>{{test}}</div>
+
+var vm = new Vue({
+    el: '#app',
+    data: {
+        test: 1
+    },
+    // 注册两个局部指令
+    directives: {
+        test1: {
+            bind: function () {
+                console.log('v-test1')
+            }
+        },
+        test2: function () {
+            console.log('v-test2')
+        }
+    }
+})
+```
+
+上面的代码中我们注册了两个局部组件，但是注册的方法不同，`test1`使用了对象语法，`test2`使用了函数语法，经过上面规范化处理之后就会变成这样：
+
+```js
+<div id="app" v-test1 v-test2>{{test}}</div>
+
+var vm = new Vue({
+    el: '#app',
+    data: {
+        test: 1
+    },
+    // 注册两个局部指令
+    directives: {
+        test1: {
+            bind: function () {
+                console.log('v-test1')
+            }
+        },
+        test2: { 
+            bind: function () {
+            	console.log('v-test2')
+        	},
+            update: function () {
+            	console.log('v-test2')
+        	}
+        }
+    }
+})
+```
+
+
+
+通过上面的3个规范化函数处理之后，`props`，`inject`，`directive`就会被处理成统一的格式了。
+
+看完了`mergeOptions`函数的三个规范化函数之后，看下一段代码：
+
+```js
+// Apply extends and mixins on the child options,
+// but only if it is a raw options object that isn't
+// the result of another mergeOptions call.
+// Only merged options has the _base property.
+if (!child._base) {
+    if (child.extends) {
+        parent = mergeOptions(parent, child.extends, vm)
+    }
+    if (child.mixins) {
+        for (let i = 0, l = child.mixins.length; i < l; i++) {
+            parent = mergeOptions(parent, child.mixins[i], vm)
+        }
+    }
+}
+```
+
+这段代码先判断`child.extends`如果为真，则递归调用`mergeOptions`函数将`parent`和`child.extends`进行合并，然后判断`child.mixins`如果为真，则`for`循环`child.mixins`，然后递归调用将`parent`和`children.mixins[i]`进行合并。并将结果作为新的`parent`。要注意的是，之前说过`mergeOptions`函数将产生一个新的对象，所以此时的`parent`已经被新的对象重新赋值了。
+
+经过上面的两个判断分支，此时的`parent`很可能已经不是之前的`parent`，而是经过合并后的新对象。
+
+至此看的`mergeOptions`的所有代码都是对选项的规范化，或者说，现在所做的事还是对`parent`已经`child`进行预处理，而这是接下来合并选项的必要步骤。
 
